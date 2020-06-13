@@ -3,32 +3,51 @@ from app import app
 from app.forms import LoginForm
 from app.forms import SignUpForm
 import boto3
+import os
+import glob
 import datetime
 import logging
 from logging.handlers import TimedRotatingFileHandler
 
 
-current_date = datetime.date.today()
+aws_access_key_id = os.environ.get('aws_access_key_id')
+aws_secret_access_key = os.environ.get('aws_secret_access_key')
+BUCKET = os.environ.get('s3_bucket')
+
+print(BUCKET)
+print(aws_access_key_id)
+print(aws_secret_access_key)
+
+s3_client = boto3.client('s3',
+    aws_access_key_id=os.environ.get('aws_access_key_id'),
+    aws_secret_access_key=os.environ.get('aws_secret_access_key')
+)
+
+
+class TimedRotatingFileHandler(TimedRotatingFileHandler):
+    def __init__(self, filename='logs/signup.log', when='S', interval=30, backup_count=3):
+        super(TimedRotatingFileHandler, self).__init__(filename=filename, when=when, interval=int(interval), backupCount=int(backup_count))
+    def doRollover(self):
+        super(TimedRotatingFileHandler, self).doRollover()
+        #log_dir = dirname(self.baseFilename)
+        list_of_files = glob.glob('logs/*')
+        oldest_file = min(list_of_files, key=os.path.getctime)
+        s3_client.upload_file(oldest_file, BUCKET, 'alekarev/{}'.format(oldest_file))
+
+
+#current_date = datetime.date.today()
 #current_log_file = 'signUp_{}.log'.foramt(current_date)
 
 
 logger = logging.getLogger('Microblog_app')
 logger.setLevel(logging.INFO)
 #fh = logging.FileHandler('logs/{}'.format(current_log_file))
-fh = TimedRotatingFileHandler('logs/signup.log', when='S', interval=30, backupCount=3)
+fh = TimedRotatingFileHandler('logs/signup.log', when='S', interval=30, backup_count=3)
 formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 fh.setFormatter(formatter)
 
 # add handler to logger object
 logger.addHandler(fh)
-
-
-s3_client = boto3.client('s3',
-    aws_access_key_id='******',
-    aws_secret_access_key='*****'
-)
-
-BUCKET = "otus-test"
 
 
 
